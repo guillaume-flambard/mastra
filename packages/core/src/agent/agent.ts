@@ -2546,6 +2546,7 @@ export class Agent<
             tracingPolicy: this.#options?.tracingPolicy,
             requireApproval: (tool as any).requireApproval,
             backgroundConfig: (tool as any).background,
+            agentBackgroundConfig: this.#backgroundTasks,
             model,
           };
           return [k, makeCoreTool(tool, options)];
@@ -3859,6 +3860,7 @@ export class Agent<
           tracingPolicy: this.#options?.tracingPolicy,
           requireApproval: (toolObj as any).requireApproval,
           backgroundConfig: (toolObj as any).background,
+          agentBackgroundConfig: this.#backgroundTasks,
         };
         const convertedToCoreTool = makeCoreTool(
           toolObj,
@@ -3936,6 +3938,7 @@ export class Agent<
           tracingPolicy: this.#options?.tracingPolicy,
           requireApproval: (toolObj as any).requireApproval,
           backgroundConfig: (toolObj as any).background,
+          agentBackgroundConfig: this.#backgroundTasks,
           workspace,
         };
         const convertedToCoreTool = makeCoreTool(
@@ -4023,6 +4026,7 @@ export class Agent<
           tracingPolicy: this.#options?.tracingPolicy,
           requireApproval: false, // Skill tools never require approval
           backgroundConfig: (toolObj as any).background,
+          agentBackgroundConfig: this.#backgroundTasks,
           workspace,
         };
         const convertedToCoreTool = makeCoreTool(
@@ -4096,6 +4100,7 @@ export class Agent<
           tracingPolicy: this.#options?.tracingPolicy,
           requireApproval: (toolObj as any).requireApproval,
           backgroundConfig: (toolObj as any).background,
+          agentBackgroundConfig: this.#backgroundTasks,
         };
         const convertedToCoreTool = makeCoreTool(
           toolObj,
@@ -4192,6 +4197,7 @@ export class Agent<
               tracingPolicy: this.#options?.tracingPolicy,
               requireApproval: (tool as any).requireApproval,
               backgroundConfig: (tool as any).background,
+              agentBackgroundConfig: this.#backgroundTasks,
               workspace,
             },
             undefined,
@@ -4406,6 +4412,7 @@ export class Agent<
                   tracingPolicy: this.#options?.tracingPolicy,
                   requireApproval: (tool as any).requireApproval,
                   backgroundConfig: (tool as any).background,
+                  agentBackgroundConfig: this.#backgroundTasks,
                   workspace,
                 },
                 undefined,
@@ -4616,6 +4623,7 @@ export class Agent<
           tracingPolicy: this.#options?.tracingPolicy,
           requireApproval: (tool as any).requireApproval,
           backgroundConfig: (tool as any).background,
+          agentBackgroundConfig: this.#backgroundTasks,
         };
         return [k, makeCoreTool(toolToConvert, options, undefined, autoResumeSuspendedTools, backgroundTaskEnabled)];
       }),
@@ -4690,6 +4698,7 @@ export class Agent<
             tracingPolicy: this.#options?.tracingPolicy,
             requireApproval: (toolObj as any).requireApproval,
             backgroundConfig: (toolObj as any).background,
+            agentBackgroundConfig: this.#backgroundTasks,
           };
           const convertedToCoreTool = makeCoreTool(
             toolObj,
@@ -4766,6 +4775,7 @@ export class Agent<
           tracingPolicy: this.#options?.tracingPolicy,
           requireApproval: (tool as any).requireApproval,
           backgroundConfig: (tool as any).background,
+          agentBackgroundConfig: this.#backgroundTasks,
         };
         const convertedToCoreTool = makeCoreTool(
           toolToConvert,
@@ -5644,7 +5654,7 @@ export class Agent<
                     prompt: effectivePrompt,
                     result,
                     duration: Date.now() - startTime,
-                    success: true,
+                    success: result.finishReason !== 'error',
                     iteration: derivedIteration,
                     runId: runId || randomUUID(),
                     toolCallId,
@@ -5837,6 +5847,7 @@ export class Agent<
           ...observabilityContext,
           tracingPolicy: this.#options?.tracingPolicy,
           backgroundConfig: subAgentBackgroundConfig,
+          agentBackgroundConfig: this.#backgroundTasks,
         };
 
         convertedAgentTools[`agent-${agentName}`] = makeCoreTool(
@@ -6110,6 +6121,7 @@ export class Agent<
           model: await this.getModel({ requestContext }),
           ...observabilityContext,
           tracingPolicy: this.#options?.tracingPolicy,
+          agentBackgroundConfig: this.#backgroundTasks,
         };
 
         convertedWorkflowTools[`workflow-${workflowName}`] = makeCoreTool(
@@ -6294,17 +6306,23 @@ export class Agent<
       model,
     });
 
-    // Preserve `onOutput` from server-declared execute-less tools when the
-    // serialized client copy overwrites them below. Normal server-executed
-    // tools never hand hooks to client-controlled input. Copy instead of
-    // mutating so a future cache inside listClientTools cannot leak hooks
-    // across requests.
+    // Preserve `onOutput` and `toModelOutput` from server-declared execute-less
+    // tools when the serialized client copy overwrites them below. Normal
+    // server-executed tools never hand hooks to client-controlled input. Copy
+    // instead of mutating so a future cache inside listClientTools cannot leak
+    // hooks across requests.
     const serverDeclaredTools = { ...assignedTools, ...toolsetTools };
     for (const [name, clientSideTool] of Object.entries(clientSideTools)) {
       const serverTool = serverDeclaredTools[name];
       if (!serverTool || serverTool.execute) continue;
-      if (!clientSideTool.onOutput && typeof serverTool.onOutput === 'function') {
-        clientSideTools[name] = { ...clientSideTool, onOutput: serverTool.onOutput };
+      const preserveOnOutput = !clientSideTool.onOutput && typeof serverTool.onOutput === 'function';
+      const preserveToModelOutput = !clientSideTool.toModelOutput && typeof serverTool.toModelOutput === 'function';
+      if (preserveOnOutput || preserveToModelOutput) {
+        clientSideTools[name] = {
+          ...clientSideTool,
+          ...(preserveOnOutput ? { onOutput: serverTool.onOutput } : {}),
+          ...(preserveToModelOutput ? { toModelOutput: serverTool.toModelOutput } : {}),
+        };
       }
     }
 
@@ -6328,6 +6346,7 @@ export class Agent<
       methodType,
       ...observabilityContext,
       autoResumeSuspendedTools,
+      backgroundTaskEnabled,
     });
 
     const workspaceTools = await this.listWorkspaceTools({
@@ -6746,7 +6765,7 @@ export class Agent<
           `Agent "${this.name}" ${method}() could not find a suspended run for runId "${runId}". ` +
           (hasStorage
             ? `The run may have already completed, never suspended, or the runId is invalid. `
-            : `No storage is configured on this Mastra instance, so workflow snapshots cannot be persisted. Register the agent on a Mastra instance with persistent storage (e.g. PostgreSQL, LibSQL). `) +
+            : `No storage is configured on this Mastra instance, so workflow snapshots can't be persisted. Register the agent on a Mastra instance with persistent storage (e.g. PostgreSQL, LibSQL). See https://mastra.ai/docs/storage. `) +
           `Ensure you are calling ${method}() only with a runId from a currently-suspended run.`,
         details: {
           runId,
@@ -8157,7 +8176,7 @@ export class Agent<
         category: ErrorCategory.USER,
         text:
           `Agent "${this.name}" listSuspendedRuns() requires storage to discover suspended runs. ` +
-          `Register the agent on a Mastra instance with persistent storage (e.g. PostgreSQL, LibSQL).`,
+          `Register the agent on a Mastra instance with persistent storage (e.g. PostgreSQL, LibSQL). See https://mastra.ai/docs/storage`,
         details: { agentName: this.name },
       });
     }
@@ -8669,18 +8688,21 @@ export class Agent<
     }
 
     const threadStreamPubSub = this.getPubSub();
-    await agentThreadStreamRuntime.waitForCrossAgentThreadRun(
-      this as Agent<any, any, any, any>,
-      loopOptions as AgentExecutionOptions<OUTPUT>,
-      threadStreamPubSub,
-    );
-
     mergedOptions.runId ??=
       this.#mastra?.generateId({
         idType: 'run',
         source: 'agent',
         entityId: this.id,
       }) ?? randomUUID();
+    // The wait also reserves the thread for this runId, so concurrent stream()
+    // calls on the same thread serialize instead of racing between this wait
+    // and registerRun below.
+    await agentThreadStreamRuntime.waitForCrossAgentThreadRun(
+      this as Agent<any, any, any, any>,
+      { ...loopOptions, runId: mergedOptions.runId } as AgentExecutionOptions<OUTPUT>,
+      threadStreamPubSub,
+    );
+
     const preparedOptions = agentThreadStreamRuntime.prepareRunOptions(
       { ...loopOptions, runId: mergedOptions.runId, actor } as AgentExecutionOptions<OUTPUT>,
       threadStreamPubSub,
@@ -8704,36 +8726,43 @@ export class Agent<
       _threadStreamPubSub: threadStreamPubSub,
     } as unknown as InnerAgentExecutionOptions<OUTPUT> & { _threadStreamPubSub?: PubSub };
 
-    const result = await this.#execute(executeOptions);
+    try {
+      const result = await this.#execute(executeOptions);
 
-    if (result.status !== 'success') {
-      if (result.status === 'failed') {
-        throw new MastraError(
-          {
-            id: 'AGENT_STREAM_FAILED',
-            domain: ErrorDomain.AGENT,
-            category: ErrorCategory.USER,
-          },
-          // pass original error to preserve stack trace
-          result.error,
-        );
+      if (result.status !== 'success') {
+        if (result.status === 'failed') {
+          throw new MastraError(
+            {
+              id: 'AGENT_STREAM_FAILED',
+              domain: ErrorDomain.AGENT,
+              category: ErrorCategory.USER,
+            },
+            // pass original error to preserve stack trace
+            result.error,
+          );
+        }
+        throw new MastraError({
+          id: 'AGENT_STREAM_UNKNOWN_ERROR',
+          domain: ErrorDomain.AGENT,
+          category: ErrorCategory.USER,
+          text: 'An unknown error occurred while streaming',
+        });
       }
-      throw new MastraError({
-        id: 'AGENT_STREAM_UNKNOWN_ERROR',
-        domain: ErrorDomain.AGENT,
-        category: ErrorCategory.USER,
-        text: 'An unknown error occurred while streaming',
-      });
+
+      await agentThreadStreamRuntime.registerRun(
+        this as Agent<any, any, any, any>,
+        result.result,
+        preparedOptions as AgentExecutionOptions<OUTPUT>,
+        threadStreamPubSub,
+      );
+
+      return result.result;
+    } catch (error) {
+      // Release the thread reservation taken by waitForCrossAgentThreadRun so
+      // a failed setup does not block subsequent runs on this thread.
+      agentThreadStreamRuntime.releaseThreadRunReservation(mergedOptions.runId, threadStreamPubSub);
+      throw error;
     }
-
-    await agentThreadStreamRuntime.registerRun(
-      this as Agent<any, any, any, any>,
-      result.result,
-      preparedOptions as AgentExecutionOptions<OUTPUT>,
-      threadStreamPubSub,
-    );
-
-    return result.result;
   }
 
   /**
@@ -9034,54 +9063,61 @@ export class Agent<
       threadStreamPubSub,
     );
 
-    const result = await this.#execute({
-      ...preparedOptions,
-      actor,
-      structuredOutput: mergedStreamOptions.structuredOutput
-        ? {
-            ...mergedStreamOptions.structuredOutput,
-            schema: toStandardSchema(mergedStreamOptions.structuredOutput.schema),
-          }
-        : undefined,
-      messages: [],
-      resumeContext: {
-        resumeData,
-        snapshot: resumeSnapshot,
-      },
-      methodType: 'stream',
-      // Use agent's maxProcessorRetries as default, allow options to override
-      maxProcessorRetries: mergedStreamOptions.maxProcessorRetries ?? this.#maxProcessorRetries,
-      _threadStreamPubSub: threadStreamPubSub,
-    } as unknown as InnerAgentExecutionOptions<OUTPUT> & { _threadStreamPubSub?: PubSub });
+    try {
+      const result = await this.#execute({
+        ...preparedOptions,
+        actor,
+        structuredOutput: mergedStreamOptions.structuredOutput
+          ? {
+              ...mergedStreamOptions.structuredOutput,
+              schema: toStandardSchema(mergedStreamOptions.structuredOutput.schema),
+            }
+          : undefined,
+        messages: [],
+        resumeContext: {
+          resumeData,
+          snapshot: resumeSnapshot,
+        },
+        methodType: 'stream',
+        // Use agent's maxProcessorRetries as default, allow options to override
+        maxProcessorRetries: mergedStreamOptions.maxProcessorRetries ?? this.#maxProcessorRetries,
+        _threadStreamPubSub: threadStreamPubSub,
+      } as unknown as InnerAgentExecutionOptions<OUTPUT> & { _threadStreamPubSub?: PubSub });
 
-    if (result.status !== 'success') {
-      if (result.status === 'failed') {
-        throw new MastraError(
-          {
-            id: 'AGENT_STREAM_FAILED',
-            domain: ErrorDomain.AGENT,
-            category: ErrorCategory.USER,
-          },
-          // pass original error to preserve stack trace
-          result.error,
-        );
+      if (result.status !== 'success') {
+        if (result.status === 'failed') {
+          throw new MastraError(
+            {
+              id: 'AGENT_STREAM_FAILED',
+              domain: ErrorDomain.AGENT,
+              category: ErrorCategory.USER,
+            },
+            // pass original error to preserve stack trace
+            result.error,
+          );
+        }
+        throw new MastraError({
+          id: 'AGENT_STREAM_UNKNOWN_ERROR',
+          domain: ErrorDomain.AGENT,
+          category: ErrorCategory.USER,
+          text: 'An unknown error occurred while streaming',
+        });
       }
-      throw new MastraError({
-        id: 'AGENT_STREAM_UNKNOWN_ERROR',
-        domain: ErrorDomain.AGENT,
-        category: ErrorCategory.USER,
-        text: 'An unknown error occurred while streaming',
-      });
+
+      await agentThreadStreamRuntime.registerRun(
+        this as Agent<any, any, any, any>,
+        result.result as unknown as MastraModelOutput<OUTPUT>,
+        preparedOptions as AgentExecutionOptions<OUTPUT>,
+        threadStreamPubSub,
+      );
+
+      return result.result as unknown as MastraModelOutput<OUTPUT>;
+    } catch (error) {
+      // Release the thread reservation taken by waitForCrossAgentThreadRun so
+      // a failed resume does not block subsequent runs on this thread.
+      agentThreadStreamRuntime.releaseThreadRunReservation(runId, threadStreamPubSub);
+      throw error;
     }
-
-    await agentThreadStreamRuntime.registerRun(
-      this as Agent<any, any, any, any>,
-      result.result as unknown as MastraModelOutput<OUTPUT>,
-      preparedOptions as AgentExecutionOptions<OUTPUT>,
-      threadStreamPubSub,
-    );
-
-    return result.result as unknown as MastraModelOutput<OUTPUT>;
   }
 
   /**

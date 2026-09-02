@@ -1,4 +1,5 @@
 import { disposeAssistantRenderState } from '../assistant-render-registry.js';
+import { setCurrentThreadTitle } from '../thread-title.js';
 import type { SlashCommandContext } from './types.js';
 
 export async function handleNewCommand(ctx: SlashCommandContext): Promise<void> {
@@ -12,6 +13,7 @@ export async function handleNewCommand(ctx: SlashCommandContext): Promise<void> 
 
   state.pendingNewThread = true;
   state.globalBackgroundNotice.setActivities([]);
+  setCurrentThreadTitle(state, undefined);
   disposeAssistantRenderState(state);
   state.chatContainer.clear();
   state.pendingTools.clear();

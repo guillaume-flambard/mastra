@@ -1,24 +1,34 @@
+import { isToolBackgroundEligible } from './resolve-config';
 import type { AgentBackgroundConfig, ToolBackgroundConfig } from './types';
+
+/**
+ * Tool shape accepted by the prompt generator. Callers may pass raw `Tool`s
+ * (config on `background`) or converted `CoreTool`s (config on
+ * `backgroundConfig`); both are honored.
+ */
+export interface BackgroundPromptTool {
+  background?: ToolBackgroundConfig;
+  backgroundConfig?: ToolBackgroundConfig;
+  description?: string;
+}
 
 /**
  * Generates the system prompt section that tells the LLM about background task capabilities.
  *
- * Returns undefined if no tools are background-eligible (nothing to inject).
+ * Only tools that `resolveBackgroundConfig` could actually dispatch to the
+ * background are listed (agent-level opt-in, falling back to tool-level
+ * config — see `isToolBackgroundEligible`). Returns undefined if no tools are
+ * background-eligible (nothing to inject).
  */
 export function generateBackgroundTaskSystemPrompt(
-  tools: Record<string, { background?: ToolBackgroundConfig; description?: string }>,
+  tools: Record<string, BackgroundPromptTool>,
   agentConfig?: AgentBackgroundConfig,
 ): string | undefined {
   const eligibleToolNames: string[] = [];
 
   for (const [toolName, tool] of Object.entries(tools)) {
-    const agentToolConfig = agentConfig?.tools === 'all' ? true : agentConfig?.tools?.[toolName];
-    const eligible =
-      typeof agentToolConfig === 'boolean'
-        ? agentToolConfig
-        : (agentToolConfig?.enabled ?? tool.background?.enabled ?? false);
-
-    if (eligible) {
+    const toolConfig = tool.backgroundConfig ?? tool.background;
+    if (isToolBackgroundEligible({ toolName, toolConfig, agentConfig })) {
       eligibleToolNames.push(toolName);
     }
   }
@@ -27,6 +37,9 @@ export function generateBackgroundTaskSystemPrompt(
     return undefined;
   }
 
+  // Eligibility only makes a tool dispatchable: every call still defaults to
+  // foreground, and `_background` is the per-call opt-in that selects a
+  // deferred or awaited disposition.
   const toolLines = eligibleToolNames.map(toolName => `- ${toolName} (default: foreground)`).join('\n');
 
   return `You have the ability to run certain tools in the background while continuing the conversation. The following tools support background execution:
