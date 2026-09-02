@@ -84,11 +84,7 @@ describe('createToolCallStep background task resume with falsy payload', () => {
     await toolCallStep.execute(
       makeBaseExecuteParams(vi.fn(), {
         resumeData,
-        inputData: {
-          toolCallId: 'call-1',
-          toolName: 'background-tool',
-          args: { query: 'customers', _background: { disposition: 'deferred' } },
-        },
+        inputData: { toolCallId: 'call-1', toolName: 'background-tool', args: { query: 'customers' } },
       }),
     );
 
@@ -142,11 +138,7 @@ describe('createToolCallStep background task resume with falsy payload', () => {
     await toolCallStep.execute(
       makeBaseExecuteParams(vi.fn(), {
         resumeData,
-        inputData: {
-          toolCallId: 'call-1',
-          toolName: 'background-tool',
-          args: { query: 'customers', _background: { disposition: 'deferred' } },
-        },
+        inputData: { toolCallId: 'call-1', toolName: 'background-tool', args: { query: 'customers' } },
       }),
     );
 
@@ -221,11 +213,7 @@ describe('createToolCallStep background task resume with falsy payload', () => {
     await toolCallStep.execute(
       makeBaseExecuteParams(vi.fn(), {
         resumeData: false,
-        inputData: {
-          toolCallId: 'call-1',
-          toolName: 'background-tool',
-          args: { query: 'customers', _background: { disposition: 'deferred' } },
-        },
+        inputData: { toolCallId: 'call-1', toolName: 'background-tool', args: { query: 'customers' } },
       }),
     );
 
@@ -331,7 +319,7 @@ describe('createToolCallStep background task stream replay', () => {
         inputData: {
           toolCallId: 'call-1',
           toolName: 'background-tool',
-          args: { query: 'customers', _background: { disposition: 'deferred' } },
+          args: { query: 'customers' },
         },
       }),
     );

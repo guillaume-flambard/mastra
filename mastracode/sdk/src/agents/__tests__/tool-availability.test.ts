@@ -24,7 +24,10 @@ const FOREGROUND_ONLY_WORKSPACE_TOOLS = [
 describe('MastraCode workspace tool background policy', () => {
   it('allows native background execution only for side-effect-free workspace reads', () => {
     for (const toolName of BACKGROUND_ELIGIBLE_WORKSPACE_TOOLS) {
-      expect(MASTRACODE_WORKSPACE_TOOLS[toolName]?.background).toEqual({ enabled: true });
+      expect(MASTRACODE_WORKSPACE_TOOLS[toolName]?.background).toEqual({
+        enabled: true,
+        defaultDisposition: 'foreground',
+      });
     }
   });
 

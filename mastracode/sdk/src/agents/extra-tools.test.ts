@@ -129,7 +129,7 @@ describe('createDynamicTools – extraTools', () => {
     })({ requestContext: makeRequestContext() });
 
     expect(tools.mastra_expert).not.toBe(mastraExpert);
-    expect(tools.mastra_expert.background).toEqual({ enabled: true });
+    expect(tools.mastra_expert.background).toEqual({ enabled: true, defaultDisposition: 'foreground' });
     expect(tools.mastra_expert.execute).not.toBe(mastraExpert.execute);
     await expect(tools.mastra_expert.execute!({ question: 'How does this work?' })).resolves.toEqual({
       answer: 'expert answer',

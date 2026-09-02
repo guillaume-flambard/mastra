@@ -7,8 +7,8 @@ import { z } from 'zod/v4';
 export const backgroundOverrideJsonSchema = {
   type: 'object' as const,
   description:
-    'Optional: opt this specific call into deferred or awaited background execution. ' +
-    'Calls run in the foreground when this field is omitted. ' +
+    'Optional: override how this specific call executes (foreground, deferred, or awaited). ' +
+    "When omitted, the tool's configured default disposition applies. " +
     'The enabled boolean remains supported for compatibility.',
   properties: {
     enabled: {
@@ -44,5 +44,5 @@ export const backgroundOverrideZodSchema = z
   })
   .optional()
   .describe(
-    'Optional: opt this specific call into deferred or awaited background execution. Calls run in the foreground when this field is omitted. The enabled boolean remains supported for compatibility.',
+    "Optional: override how this specific call executes (foreground, deferred, or awaited). When omitted, the tool's configured default disposition applies. The enabled boolean remains supported for compatibility.",
   );

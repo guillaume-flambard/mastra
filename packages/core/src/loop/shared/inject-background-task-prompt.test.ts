@@ -90,7 +90,7 @@ describe('injectBackgroundTaskPrompt', () => {
       agentBackgroundConfig: { tools: { biExecutor: { enabled: true } } },
     });
     const systemContent = (result[0] as { content: string }).content;
-    expect(systemContent).toContain('- agent-biExecutor (default: foreground)');
+    expect(systemContent).toContain('- agent-biExecutor (default: background)');
     expect(systemContent).not.toContain('readFile');
     expect(systemContent).not.toContain('editFile');
   });
@@ -103,7 +103,7 @@ describe('injectBackgroundTaskPrompt', () => {
       tools: { converted: { backgroundConfig: { enabled: true } }, plain: {} },
     });
     const systemContent = (result[0] as { content: string }).content;
-    expect(systemContent).toContain('- converted (default: foreground)');
+    expect(systemContent).toContain('- converted (default: background)');
     expect(systemContent).not.toContain('plain');
   });
 

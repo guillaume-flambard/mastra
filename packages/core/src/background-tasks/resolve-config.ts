@@ -21,7 +21,9 @@ export interface ResolvedBackgroundConfig {
  * 1. LLM per-call override (`_background` field in tool args)
  * 2. Agent-level backgroundTasks.tools config
  * 3. Tool-level background config
- * 4. Default: foreground
+ * 4. Default for eligible tools: the configured `defaultDisposition`
+ *    (deferred when unset, matching upstream background-by-default);
+ *    non-eligible tools always run foreground
  *
  * Strips the `_background` field from args (mutates the args object).
  */
@@ -56,16 +58,23 @@ export function resolveBackgroundConfig({
   // Resolve agent-level config for this specific tool
   const agentToolConfig = resolveAgentToolConfig(toolName, agentConfig);
 
-  // --- enabled ---
-  // Tool and agent config only make a tool eligible for background execution.
-  // Each call must explicitly opt in through `_background`; omission always
-  // means foreground. A foreground-only tool must stay foreground regardless
-  // of what the model emits, so `agent.generate()` / `agent.stream()` keep
-  // returning real tool results for deterministic tools. See issue #16783.
+  // --- disposition ---
+  // Tool and agent config gate eligibility. A non-eligible tool always runs
+  // foreground regardless of what the model emits, so `agent.generate()` /
+  // `agent.stream()` keep returning real tool results for deterministic
+  // tools. See issue #16783.
+  //
+  // For eligible tools, the `_background` override wins; when omitted, the
+  // configured `defaultDisposition` applies. It defaults to 'deferred' so an
+  // eligible tool without further config runs in the background, matching
+  // upstream semantics where enabling background for a tool means it
+  // executes async. Set `defaultDisposition: 'foreground'` to make
+  // eligibility grant only the per-call option.
   const baseEnabled = agentToolConfig?.enabled ?? toolConfig?.enabled ?? false;
+  const defaultDisposition = resolveDefaultDisposition({ toolName, toolConfig, agentConfig });
   const requestedDisposition =
     llmOverride?.disposition ??
-    (llmOverride?.enabled === false ? 'foreground' : llmOverride?.enabled === true ? 'deferred' : 'foreground');
+    (llmOverride?.enabled === false ? 'foreground' : llmOverride?.enabled === true ? 'deferred' : defaultDisposition);
   const disposition: BackgroundExecutionDisposition = baseEnabled ? requestedDisposition : 'foreground';
 
   // --- timeoutMs ---
@@ -104,10 +113,29 @@ export function isToolBackgroundEligible({
   return agentToolConfig?.enabled ?? toolConfig?.enabled ?? false;
 }
 
+/**
+ * The disposition an eligible tool resolves to when a call carries no
+ * `_background` override. Mirrors the fallback chain in
+ * `resolveBackgroundConfig` so advertising paths (system prompt) and dispatch
+ * cannot disagree.
+ */
+export function resolveDefaultDisposition({
+  toolName,
+  toolConfig,
+  agentConfig,
+}: {
+  toolName: string;
+  toolConfig?: ToolBackgroundConfig;
+  agentConfig?: AgentBackgroundConfig;
+}): 'foreground' | 'deferred' {
+  const agentToolConfig = resolveAgentToolConfig(toolName, agentConfig);
+  return agentToolConfig?.defaultDisposition ?? toolConfig?.defaultDisposition ?? 'deferred';
+}
+
 function resolveAgentToolConfig(
   toolName: string,
   agentConfig?: AgentBackgroundConfig,
-): { enabled: boolean; timeoutMs?: number } | undefined {
+): { enabled: boolean; timeoutMs?: number; defaultDisposition?: 'foreground' | 'deferred' } | undefined {
   if (!agentConfig?.tools) return undefined;
 
   if (agentConfig.tools === 'all') {

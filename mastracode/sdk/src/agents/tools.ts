@@ -55,7 +55,9 @@ function configurePluginTool(name: string, tool: ToolLike): ToolLike {
   if (!BACKGROUND_ELIGIBLE_PLUGIN_TOOLS.has(name)) return tool;
   return {
     ...tool,
-    background: { enabled: true },
+    // Eligible for backgrounding, but the agent must opt in per call — a plain
+    // expert question should stay a normal awaited foreground call.
+    background: { enabled: true, defaultDisposition: 'foreground' },
     execute: (...args: any[]) => executeAlexandriaSerially(tool, args),
   };
 }
