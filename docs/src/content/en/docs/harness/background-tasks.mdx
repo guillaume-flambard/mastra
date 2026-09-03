@@ -52,12 +52,12 @@ The full set of options is listed in the [backgroundTasks configuration referenc
 
 ## Run a tool in the background
 
-Enabling the manager doesn't run anything in the background by itself as every tool defaults to foreground execution. Tools opt in at one of two layers:
+Enabling the manager doesn't run anything in the background by itself. Tools become eligible at one of two layers:
 
 1. **Tool-level config**: the tool itself declares it as background-eligible.
 1. **Agent-level config**: the agent declares which of its tools are background-eligible.
 
-Once a tool has opted in, the LLM can optionally include a `_background` field in the tool arguments to select `foreground`, `deferred`, or `awaited` execution for a specific call and override its timeout or retries.
+Eligible tools default to `deferred` execution. Set `defaultDisposition: 'foreground'` at either layer when eligibility should only give the LLM the option to run a call in the background. The LLM can include a `_background` field in the tool arguments to select `foreground`, `deferred`, or `awaited` execution for a specific call and override its timeout or retries.
 
 ### Tool-level
 
@@ -74,7 +74,7 @@ export const researchTool = createTool({
   // highlight-start
   background: {
     enabled: true,
-    disposition: 'deferred',
+    defaultDisposition: 'deferred',
     timeoutMs: 600_000,
     maxRetries: 1,
   },

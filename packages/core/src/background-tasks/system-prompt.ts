@@ -42,8 +42,8 @@ export function generateBackgroundTaskSystemPrompt(
 
   // Each eligible tool advertises the disposition it resolves to when the
   // call carries no `_background` override: 'deferred' defaults show as
-  // "default: background" (matching upstream), 'foreground' defaults require
-  // an explicit per-call opt-in.
+  // "default: background", while 'foreground' defaults require an explicit
+  // per-call opt-in.
   const toolLines = eligibleTools
     .map(({ toolName, defaultDisposition }) =>
       defaultDisposition === 'deferred'

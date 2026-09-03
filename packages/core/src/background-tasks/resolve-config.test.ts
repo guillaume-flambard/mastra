@@ -35,7 +35,7 @@ describe('resolveBackgroundConfig', () => {
     expect(resolved.runInBackground).toBe(false);
   });
 
-  it('defers an eligible tool by default when the call has no override (upstream behavior)', () => {
+  it('defers an eligible tool by default when the call has no override', () => {
     const resolved = resolveBackgroundConfig({
       llmBgOverrides: {},
       toolName: 'research',
@@ -47,7 +47,7 @@ describe('resolveBackgroundConfig', () => {
     expect(resolved).toMatchObject({ runInBackground: true, disposition: 'deferred' });
   });
 
-  it('defers an agent-eligible tool by default when the call has no override (upstream behavior)', () => {
+  it('defers an agent-eligible tool by default when the call has no override', () => {
     const resolved = resolveBackgroundConfig({
       llmBgOverrides: {},
       toolName: 'research',

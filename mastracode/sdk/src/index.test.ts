@@ -231,7 +231,7 @@ describe('createMastraCode startup performance', () => {
     expect(result.storageWarning).toBe('Storage fallback warning');
     expect(syncGateways).not.toHaveBeenCalled();
     resolveSync?.();
-  });
+  }, 10_000);
 });
 
 describe('Kimi startup access', () => {

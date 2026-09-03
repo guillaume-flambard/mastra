@@ -22,8 +22,7 @@ export interface ResolvedBackgroundConfig {
  * 2. Agent-level backgroundTasks.tools config
  * 3. Tool-level background config
  * 4. Default for eligible tools: the configured `defaultDisposition`
- *    (deferred when unset, matching upstream background-by-default);
- *    non-eligible tools always run foreground
+ *    (deferred when unset); non-eligible tools always run foreground
  *
  * Strips the `_background` field from args (mutates the args object).
  */
@@ -66,10 +65,9 @@ export function resolveBackgroundConfig({
   //
   // For eligible tools, the `_background` override wins; when omitted, the
   // configured `defaultDisposition` applies. It defaults to 'deferred' so an
-  // eligible tool without further config runs in the background, matching
-  // upstream semantics where enabling background for a tool means it
-  // executes async. Set `defaultDisposition: 'foreground'` to make
-  // eligibility grant only the per-call option.
+  // eligible tool without further config runs in the background. Set
+  // `defaultDisposition: 'foreground'` to make eligibility grant only the
+  // per-call option.
   const baseEnabled = agentToolConfig?.enabled ?? toolConfig?.enabled ?? false;
   const defaultDisposition = resolveDefaultDisposition({ toolName, toolConfig, agentConfig });
   const requestedDisposition =

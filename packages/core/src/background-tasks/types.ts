@@ -219,8 +219,7 @@ export interface ToolBackgroundConfig {
   enabled?: boolean;
   /**
    * How an eligible tool runs when the call carries no `_background` override.
-   * - `'deferred'` (default): eligible calls run in the background, matching
-   *   upstream behavior where enabling a tool means it executes async.
+   * - `'deferred'` (default): eligible calls run in the background.
    * - `'foreground'`: eligible calls run inline unless the model explicitly
    *   opts in via `_background` — eligibility only grants the *option*.
    */
@@ -275,7 +274,7 @@ export interface AgentBackgroundConfig {
  * to override background behavior per-call.
  */
 export interface LLMBackgroundOverride {
-  /** Force deferred (true) or foreground (false). Undefined = foreground. */
+  /** Force deferred (true) or foreground (false). Undefined uses the configured default disposition. */
   enabled?: boolean;
   /** Choose foreground, deferred, or awaited execution for this call. */
   disposition?: BackgroundExecutionDisposition;

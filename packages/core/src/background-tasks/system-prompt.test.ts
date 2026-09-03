@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { generateBackgroundTaskSystemPrompt } from './system-prompt';
 
 describe('generateBackgroundTaskSystemPrompt', () => {
-  it('describes eligible tools as background by default (upstream behavior)', () => {
+  it('describes eligible tools as background by default', () => {
     const prompt = generateBackgroundTaskSystemPrompt({
       research: { background: { enabled: true } },
       calculator: {},
