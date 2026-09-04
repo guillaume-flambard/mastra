@@ -463,6 +463,22 @@ describe('Observability Methods', () => {
             },
           },
         },
+        group: {
+          by: ['threadId'] as const,
+          where: {
+            traces: {
+              some: {
+                feedback: {
+                  some: {
+                    op: 'eq' as const,
+                    left: { path: 'feedbackType' },
+                    right: { literal: 'clinician-correction' },
+                  },
+                },
+              },
+            },
+          },
+        },
         page: { limit: 25 },
       };
 
